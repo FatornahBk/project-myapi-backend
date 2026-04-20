@@ -127,7 +127,7 @@
             await new Promise(resolve => { img.onload = resolve; });
 
             try {
-                // เรียกใช้ API ของคุณ
+                
                 const response = await fetch('http://localhost:8000/predict', {
                     method: 'POST',
                     body: formData
