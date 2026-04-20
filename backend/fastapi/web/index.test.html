@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blood Cell Detection</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* จัดการขนาดของ Canvas ให้ยืดหยุ่นตามหน้าจอแต่ยังคงอัตราส่วนเดิม */
+        #resultCanvas {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        .loader {
+            border-top-color: #3498db;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-gray-800">
+
+    <div class="max-w-5xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
+        
+        <div class="text-center mb-10">
+            <h1 class="text-3xl font-extrabold text-indigo-600 sm:text-4xl">
+                Blood Cell Detection
+            </h1>
+            <p class="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
+                อัปโหลดรูปภาพและเลือกโหมดเพื่อวิเคราะห์หาเซลล์
+            </p>
+        </div>
+
+        <div class="bg-white shadow-xl rounded-2xl p-6 mb-8 border border-gray-100">
+            <form id="uploadForm" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <div>
+                        <label for="mode" class="block text-sm font-medium text-gray-700 mb-2">เลือก Mode (wright / giemsa)</label>
+                        <select id="mode" name="mode" class="block w-full pl-3 pr-10 py-3 text-base border-gray-300 border rounded-lg focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <option value="wright">Wright</option>
+                            <option value="giemsa">Giemsa</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="image" class="block text-sm font-medium text-gray-700 mb-2">อัปโหลดไฟล์รูปภาพ</label>
+                        <input type="file" id="image" name="image" accept="image/*" required
+                            class="block w-full text-sm text-gray-500 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none file:mr-4 file:py-3 file:px-4 file:rounded-l-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+                    </div>
+                </div>
+
+                <div class="text-center pt-4">
+                    <button type="submit" id="submitBtn" class="inline-flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors shadow-md">
+                        <span>วิเคราะห์รูปภาพ</span>
+                    </button>
+                    <div id="loading" class="hidden justify-center items-center mt-4">
+                        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-8 w-8 mr-3"></div>
+                        <span class="text-indigo-600 font-medium">กำลังประมวลผล...</span>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div id="resultSection" class="hidden bg-white shadow-xl rounded-2xl p-6 border border-gray-100">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center border-b pb-4">ผลลัพธ์การวิเคราะห์</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                <div class="lg:col-span-1 space-y-4">
+                    <div class="bg-indigo-50 p-4 rounded-xl">
+                        <h3 class="text-sm font-semibold text-indigo-800 uppercase tracking-wide">ตรวจพบทั้งหมด</h3>
+                        <p class="text-3xl font-black text-indigo-600 mt-1" id="totalDetections">0</p>
+                    </div>
+                    <div id="classesList" class="space-y-3">
+                        </div>
+                </div>
+
+                <div class="lg:col-span-3 bg-gray-900 rounded-xl p-2 shadow-inner overflow-hidden flex items-center justify-center relative">
+                    <canvas id="resultCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // กำหนดสีสำหรับแต่ละ Class เพื่อให้ดูง่าย
+        const classColors = {
+            "Eosinophil": "#ef4444",   // แดง
+            "Thrombocyte": "#3b82f6",  // น้ำเงิน
+            "Neutrophil": "#10b981",   // เขียว
+            "Lymphocyte": "#f59e0b",   // เหลือง
+            "Monocyte": "#8b5cf6"      // ม่วง
+        };
+
+        const form = document.getElementById('uploadForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const loading = document.getElementById('loading');
+        const resultSection = document.getElementById('resultSection');
+        const canvas = document.getElementById('resultCanvas');
+        const ctx = canvas.getContext('2d');
+        const totalDetectionsEl = document.getElementById('totalDetections');
+        const classesListEl = document.getElementById('classesList');
+        const imageInput = document.getElementById('image');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // จัดการ UI
+            submitBtn.classList.add('hidden');
+            loading.classList.remove('hidden');
+            loading.classList.add('flex');
+            resultSection.classList.add('hidden');
+            
+            const formData = new FormData(form);
+            const file = imageInput.files[0];
+
+            // เตรียมโหลดรูปภาพไว้ก่อนเพื่อใช้วาดบน Canvas
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            await new Promise(resolve => { img.onload = resolve; });
+
+            try {
+                // เรียกใช้ API ของคุณ
+                const response = await fetch('http://localhost:8000/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // ตั้งค่า Canvas ให้มีขนาดเท่ารูปจริง
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                // วาดรูปต้นฉบับลงไป
+                ctx.drawImage(img, 0, 0);
+
+                // ตั้งค่าฟอนต์สำหรับการวาดข้อความบนรูป
+                // ปรับขนาดฟอนต์ให้สัมพันธ์กับความกว้างของรูป (รูปตัวอย่างความกว้าง 2000+ px)
+                const fontSize = Math.max(24, Math.floor(canvas.width / 70)); 
+                ctx.font = `bold ${fontSize}px sans-serif`;
+                ctx.textBaseline = "top";
+
+                // เคลียร์ข้อมูลสรุปเดิม
+                classesListEl.innerHTML = '';
+                totalDetectionsEl.textContent = data.total_detections;
+
+                // วนลูปวาดกรอบ Bounding Box และสร้างรายการสรุป
+                if (data.classes) {
+                    Object.keys(data.classes).forEach(className => {
+                        const classData = data.classes[className];
+                        const color = classColors[className] || "#14b8a6"; // ถ้าไม่มีสีในระบบให้ใช้สี Teal
+
+                        // 1. สร้างการ์ดสรุปด้านซ้าย
+                        const classCard = document.createElement('div');
+                        classCard.className = 'bg-white p-3 rounded-lg border-l-4 shadow-sm';
+                        classCard.style.borderLeftColor = color;
+                        classCard.innerHTML = `
+                            <p class="font-bold text-gray-700 text-sm">${className}</p>
+                            <div class="flex justify-between items-baseline mt-1">
+                                <span class="text-xl font-bold" style="color: ${color}">${classData.count}</span>
+                                <span class="text-xs text-gray-500">Avg Conf: ${(classData.avg_confidence * 100).toFixed(1)}%</span>
+                            </div>
+                        `;
+                        classesListEl.appendChild(classCard);
+
+                        // 2. วาดกล่องลงบน Canvas
+                        classData.detections.forEach(det => {
+                            const { x1, y1, width, height } = det.bbox;
+                            const conf = (det.confidence * 100).toFixed(1);
+                            
+                            // วาดกรอบสี่เหลี่ยม
+                            ctx.strokeStyle = color;
+                            ctx.lineWidth = Math.max(3, Math.floor(canvas.width / 400)); // ปรับความหนาเส้นตามขนาดรูป
+                            ctx.strokeRect(x1, y1, width, height);
+
+                            // วาดพื้นหลังสำหรับข้อความ (ให้อ่านง่ายขึ้น)
+                            const text = `${className} ${conf}%`;
+                            const textWidth = ctx.measureText(text).width;
+                            const textPadding = 10;
+                            
+                            ctx.fillStyle = color;
+                            ctx.fillRect(x1 - (ctx.lineWidth/2), y1 - fontSize - (textPadding*2), textWidth + (textPadding*2), fontSize + (textPadding*2));
+
+                            // วาดตัวหนังสือ
+                            ctx.fillStyle = "#ffffff";
+                            ctx.fillText(text, x1 + textPadding, y1 - fontSize - textPadding);
+                        });
+                    });
+                }
+
+                // แสดงผลลัพธ์
+                resultSection.classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อ API กรุณาตรวจสอบให้แน่ใจว่า API รันอยู่บน http://localhost:8000 (ปัญหาที่พบบ่อย: CORS Error)');
+            } finally {
+                // คืนค่าปุ่มให้กลับมากดได้
+                submitBtn.classList.remove('hidden');
+                loading.classList.add('hidden');
+                loading.classList.remove('flex');
+            }
+        });
+    </script>
+</body>
+</html>
