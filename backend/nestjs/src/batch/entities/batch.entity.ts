@@ -34,7 +34,7 @@ export class Batch {
   description: string;
 
   @CreateDateColumn()
-  create_at: Date;
+  created_at: Date;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })

@@ -21,7 +21,7 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-@ApiTags('Batches & Images')
+@ApiTags('Upload')
 @ApiBearerAuth()
 @Controller('batches')
 export class BatchController {

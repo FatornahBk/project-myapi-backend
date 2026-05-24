@@ -10,6 +10,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  // @ApiTags('Register')
   @ApiOperation({ summary: 'สมัครสมาชิกสัตวแพทย์' })
   @ApiResponse({ status: 201, description: 'ลงทะเบียนสำเร็จ' })
   @ApiResponse({ status: 409, description: 'อีเมลนี้มีในระบบแล้ว' })
@@ -18,6 +19,7 @@ export class AuthController {
   }
 
   @Post('login')
+  // @ApiTags('Login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'เข้าสู่ระบบเพื่อรับ Token' })
   @ApiResponse({ status: 200, description: 'เข้าสู่ระบบสำเร็จ คืนค่า access_token' })

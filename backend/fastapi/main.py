@@ -4,6 +4,7 @@ from ultralytics import YOLO
 from PIL import Image
 from collections import defaultdict
 import io
+from typing import List
 
 
 # ---------------------------------------------------------------------------
@@ -115,3 +116,49 @@ async def predict(
     results   = MODELS[mode](pil_image, conf=CONF_THRESHOLD)
 
     return build_response(mode, image.filename, results)
+
+@app.post("/predict-batch")
+async def predict_batch(
+    mode:   str              = Form(..., description="wright หรือ giemsa"),
+    images: List[UploadFile] = File(..., description="ไฟล์รูปภาพ (สามารถอัปโหลดได้หลายไฟล์พร้อมกัน)"),
+):
+    if mode not in MODELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"mode '{mode}' ไม่ถูกต้อง ใช้ได้แค่: {list(MODELS.keys())}",
+        )
+
+    prediction_results = []
+
+    # วนลูปประมวลผลรูปภาพทีละไฟล์จาก Array ที่ส่งมา
+    for image in images:
+        # ถ้ารูปไหนไม่ใช่ไฟล์ภาพ ให้ข้ามไป ไม่ต้องโยน Error เพื่อให้ภาพอื่นยังทำงานต่อได้
+        if not image.content_type.startswith("image/"):
+            prediction_results.append({
+                "filename": image.filename,
+                "error": "ไม่ใช่ไฟล์รูปภาพ ข้ามการทำงาน"
+            })
+            continue
+
+        try:
+            pil_image = read_image(image)
+            results   = MODELS[mode](pil_image, conf=CONF_THRESHOLD)
+            
+            # ใช้ helper เดิมสร้างโครงสร้าง Response ของภาพนั้นๆ
+            image_result = build_response(mode, image.filename, results)
+            prediction_results.append(image_result)
+            
+        except Exception as e:
+            # ดักจับ Error กรณีไฟล์เสีย เพื่อไม่ให้ระบบล่มทั้ง Batch
+            prediction_results.append({
+                "filename": image.filename,
+                "error": f"เกิดข้อผิดพลาด: {str(e)}"
+            })
+
+    # ส่งคืนข้อมูลภาพทั้งหมดที่อยู่ใน Array กลับไปให้หน้าเว็บ
+    return {
+        "message": "ประมวลผลชุดข้อมูลสำเร็จ",
+        "mode": mode,
+        "total_images_processed": len(prediction_results),
+        "data": prediction_results 
+    }

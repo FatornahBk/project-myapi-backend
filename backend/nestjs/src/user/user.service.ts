@@ -127,4 +127,20 @@ export class UserService {
       message: `อนุมัติบัญชีของ ${user.email} และส่งอีเมลแจ้งเตือนเรียบร้อยแล้ว`
     };
   }
+
+  async findUnverifiedUsers() {
+    return await this.userRepository.find({
+      where: { is_verified: false },
+      select: [
+        'user_id',
+        'first_name',
+        'last_name',
+        'email',
+        'veterinary_license',
+        'role',
+        'created_at',
+      ],
+      order: { created_at: 'ASC' },
+    });
+  }
 }
