@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # 1. ฐานข้อมูล MySQL
+  mysql-db:
+    image: mysql:8.0
+    container_name: avian_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_here
+      MYSQL_DATABASE: avian_blood_db
+      MYSQL_USER: avian_user
+      MYSQL_PASSWORD: avian_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  # 2. ฝั่งประมวลผล AI (FastAPI)
+  fastapi-ai:
+    build: ./fastapi
+    container_name: avian_fastapi
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mysql-db
+
+  # 3. ฝั่ง API หลัก (NestJS)
+  nestjs-api:
+    build: ./nestjs
+    container_name: avian_nestjs
+    restart: always
+    ports:
+      - "30001:30001"
+    environment:
+      # ตั้งค่าเชื่อมต่อ DB ให้ตรงกับที่สร้างไว้ด้านบน
+      DB_HOST: mysql-db
+      DB_PORT: 3306
+      DB_USERNAME: avian_user
+      DB_PASSWORD: avian_password
+      DB_DATABASE: avian_blood_db
+      # เปลี่ยน JWT_SECRET ตามต้องการ
+      JWT_SECRET: my_super_secret_key 
+    volumes:
+      # สำคัญมาก! ต้อง Map โฟลเดอร์ uploads ออกมา เพื่อไม่ให้รูปภาพหายตอนเซิร์ฟเวอร์รีสตาร์ท
+      - ./nestjs/uploads:/app/uploads
+    depends_on:
+      - mysql-db
+      - fastapi-ai
+
+volumes:
+  mysql_data: # เอาไว้เซฟข้อมูลตารางฐานข้อมูลไม่ให้หาย
