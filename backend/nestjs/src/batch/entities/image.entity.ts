@@ -1,8 +1,10 @@
+import { Prediction } from '../../prediction/entities/prediction.entity';
 import {
   Column,
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Batch } from './batch.entity';
@@ -24,4 +26,7 @@ export class Image {
   @ManyToOne(() => Batch, (batch) => batch.images, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'batch_id' })
   batch: Batch;
+
+  @OneToOne(() => Prediction, (prediction) => prediction.image)
+  prediction: Prediction;
 }

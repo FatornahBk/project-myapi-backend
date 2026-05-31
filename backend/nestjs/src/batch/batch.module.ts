@@ -5,9 +5,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Batch } from './entities/batch.entity';
 import { Image } from './entities/image.entity';
 import { PredictionBatchController } from './prediction.batch.controller';
+import { Prediction } from '../prediction/entities/prediction.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Batch, Image])],
+  imports: [TypeOrmModule.forFeature([Batch, Image, Prediction])],
   controllers: [BatchController, PredictionBatchController],
   providers: [BatchService],
 })

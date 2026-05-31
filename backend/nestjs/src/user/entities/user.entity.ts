@@ -1,5 +1,5 @@
 import { Batch } from 'src/batch/entities/batch.entity';
-import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('users')
 export class User {
@@ -27,11 +27,17 @@ export class User {
   @Column()
   veterinary_license: string;
 
-  @Column({ default: false })
-  is_verified: boolean;
+  @Column({type: 'tinyint', default: 0})
+  is_verified: number;
+
+  @Column({ default: true })
+  is_active: boolean;
 
   @CreateDateColumn()
   created_at: Date;
+
+  @UpdateDateColumn()
+  updated_at: Date;
 
   @Column({ type: 'timestamp', nullable: true })
   verified_at: Date;

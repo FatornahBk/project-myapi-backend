@@ -13,7 +13,12 @@ import {
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AdminGuard } from 'src/auth/guards/admin.guard';
 import { UpdateRoleDto } from './dto/update-role.dto';
 
@@ -25,14 +30,22 @@ export class ManageUserController {
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   @ApiBearerAuth()
   @Get('admin/all')
-  @ApiOperation({ summary: 'ดึงข้อมูลผู้ใช้งานทั้งหมด (สำหรับ Admin)' })
+  @ApiOperation({ summary: 'ดึงข้อมูลผู้ใช้งานทั้งหมดที่ Verify แล้ว (สำหรับ Admin)' })
   @ApiQuery({
     name: 'role',
     required: false,
     description: 'กรองตาม Role (เช่น user, admin) ถ้าไม่ใส่จะดึงทั้งหมด',
   })
-  async getAllUsers(@Query('role') role?: string) {
-    return this.userService.findAllUsers(role);
+  @ApiQuery({
+    name: 'email',
+    required: false,
+    description: 'ค้นหาด้วยอีเมล (พิมพ์แค่บางส่วนได้)',
+  })
+  async getAllUsers(
+    @Query('role') role?: string,
+    @Query('email') email?: string,
+  ) {
+    return this.userService.findAllUsers(role, email);
   }
 
   @UseGuards(AuthGuard('jwt'), AdminGuard)
@@ -48,9 +61,9 @@ export class ManageUserController {
 
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   @ApiBearerAuth()
-  @Delete('admin/delete/:id')
-  @ApiOperation({ summary: 'ลบบัญชีผู้ใช้งาน (สำหรับ Admin)' })
-  async removeUser(@Param('id', ParseIntPipe) id: number, @Request() req) {
-    return this.userService.removeUser(id, req.user.userId);
+  @Patch('admin/suspend/:id')
+  @ApiOperation({ summary: 'ระงับบัญชีผู้ใช้งาน (สำหรับ Admin)' })
+  async suspendUser(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    return this.userService.suspendUser(id, req.user.userId);
   }
 }

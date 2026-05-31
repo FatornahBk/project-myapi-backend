@@ -14,7 +14,6 @@ import {
 } from '@nestjs/common';
 import { BatchService } from './batch.service';
 import { CreateBatchDto } from './dto/create-batch.dto';
-import { UpdateBatchDto } from './dto/update-batch.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';

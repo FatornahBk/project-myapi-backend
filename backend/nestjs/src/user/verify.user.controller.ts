@@ -13,7 +13,12 @@ import {
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AdminGuard } from 'src/auth/guards/admin.guard';
 import { UpdateRoleDto } from './dto/update-role.dto';
 
@@ -26,8 +31,13 @@ export class VerifyUserController {
   @ApiBearerAuth()
   @Get('admin/pending')
   @ApiOperation({ summary: 'ดึงข้อมูลสัตวแพทย์ที่รอการอนุมัติ (สำหรับ Admin)' })
-  async getUnverifiedUsers() {
-    return this.userService.findUnverifiedUsers();
+  @ApiQuery({
+    name: 'email',
+    required: false,
+    description: 'ค้นหาด้วยอีเมล (พิมพ์แค่บางส่วนได้)',
+  })
+  async getUnverifiedUsers(@Query('email') email?: string) {
+    return this.userService.findUnverifiedUsers(email);
   }
 
   @UseGuards(AuthGuard('jwt'), AdminGuard)
@@ -38,5 +48,11 @@ export class VerifyUserController {
     return this.userService.approveUser(id);
   }
 
-
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @ApiBearerAuth()
+  @Patch('admin/reject/:id')
+  @ApiOperation({ summary: 'ปฏิเสธบัญชีสัตวแพทย์และส่งอีเมล (สำหรับ Admin)' })
+  async rejectUser(@Param('id', ParseIntPipe) id: number) {
+    return this.userService.rejectUser(id);
+  }
 }

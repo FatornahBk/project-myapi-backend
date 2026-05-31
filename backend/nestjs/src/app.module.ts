@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { BatchModule } from './batch/batch.module';
 import { MailerModule } from '@nestjs-modules/mailer';
+import { PredictionModule } from './prediction/prediction.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
     AuthModule,
     UserModule,
     BatchModule,
+    PredictionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
