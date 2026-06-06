@@ -23,7 +23,7 @@ MODELS = {
 # App
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="YOLO Inference API")
+app = FastAPI(title="YOLO Inference API", root_path="/ai")
 
 app.add_middleware(
     CORSMiddleware,

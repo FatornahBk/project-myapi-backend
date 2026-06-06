@@ -22,10 +22,11 @@ async function bootstrap() {
     .setDescription('NaiSyntaxSultan')
     .setVersion('1.0')
     .addBearerAuth()
+    .addServer('/api')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('docs', app, document);
 
   await app.listen(process.env.PORT ?? 3000);
 }

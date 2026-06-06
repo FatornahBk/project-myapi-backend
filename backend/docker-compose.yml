@@ -39,8 +39,8 @@ services:
     build: ./fastapi
     container_name: avian_fastapi
     restart: always
-    ports:
-      - "8000:8000"
+    #ports:
+      #- "8000:8000"
     depends_on:
       - mysql-db
 
@@ -51,16 +51,25 @@ services:
     restart: always
     env_file:
       - .env
-    ports:
-      - "3000:3000"
+    #ports:
+      #- "3000:3000"
     volumes:
-      # สำคัญมาก! ต้อง Map โฟลเดอร์ uploads ออกมา เพื่อไม่ให้รูปภาพหายตอนเซิร์ฟเวอร์รีสตาร์ท
       - ./nestjs/uploads:/app/uploads
     depends_on:
       mysql-db:
         condition: service_healthy
       fastapi-ai:
         condition: service_started
+  nginx:
+    image: nginx:latest
+    container_name: avian_nginx
+    ports:
+      - "80:80"  
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - nestjs-api
+      - fastapi-ai
 
 volumes:
   mysql_data: # เอาไว้เซฟข้อมูลตารางฐานข้อมูลไม่ให้หาย
