@@ -6,15 +6,33 @@ services:
     image: mysql:8.0
     container_name: avian_mysql
     restart: always
+    env_file:
+      - .env
     environment:
-      MYSQL_ROOT_PASSWORD: MySecretRootPassword123!
-      MYSQL_DATABASE: avian_blood_db
-      MYSQL_USER: avian_user
-      MYSQL_PASSWORD: MySecretPassword123!
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: avian_phpmyadmin
+    restart: always
+    ports:
+      - "127.0.0.1:8080:80"
+    environment:
+      PMA_HOST: mysql-db
+    depends_on:
+      - mysql-db
 
   # 2. ฝั่งประมวลผล AI (FastAPI)
   fastapi-ai:
@@ -31,24 +49,18 @@ services:
     build: ./nestjs
     container_name: avian_nestjs
     restart: always
+    env_file:
+      - .env
     ports:
-      - "30001:30001"
-    environment:
-      # ตั้งค่าเชื่อมต่อ DB ให้ตรงกับที่สร้างไว้ด้านบน
-      PORT: 30001
-      DB_HOST: mysql-db
-      DB_PORT: 3306
-      DB_USERNAME: avian_user
-      DB_PASSWORD: MySecretPassword123!
-      DB_DATABASE: avian_blood_db
-      # เปลี่ยน JWT_SECRET ตามต้องการ
-      JWT_SECRET: my_super_secret_key 
+      - "3000:3000"
     volumes:
       # สำคัญมาก! ต้อง Map โฟลเดอร์ uploads ออกมา เพื่อไม่ให้รูปภาพหายตอนเซิร์ฟเวอร์รีสตาร์ท
       - ./nestjs/uploads:/app/uploads
     depends_on:
-      - mysql-db
-      - fastapi-ai
+      mysql-db:
+        condition: service_healthy
+      fastapi-ai:
+        condition: service_started
 
 volumes:
   mysql_data: # เอาไว้เซฟข้อมูลตารางฐานข้อมูลไม่ให้หาย
