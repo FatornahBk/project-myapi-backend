@@ -19,6 +19,7 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import * as fs from 'fs';
 
 @ApiTags('Upload')
 @ApiBearerAuth()
@@ -33,7 +34,13 @@ export class BatchController {
   @UseInterceptors(
     FilesInterceptor('files', 100, {
       storage: diskStorage({
-        destination: './uploads/batches',
+        destination: (req, file, cb) => {
+          const uploadPath = './uploads/batches';
+          if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+          }
+          cb(null, uploadPath);
+        },
         filename: (req, file, cb) => {
           const uniqueSuffix =
             Date.now() + '-' + Math.round(Math.random() * 1e9);
