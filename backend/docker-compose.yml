@@ -7,10 +7,10 @@ services:
     container_name: avian_mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root_password_here
+      MYSQL_ROOT_PASSWORD: MySecretRootPassword123!
       MYSQL_DATABASE: avian_blood_db
       MYSQL_USER: avian_user
-      MYSQL_PASSWORD: avian_password
+      MYSQL_PASSWORD: MySecretPassword123!
     ports:
       - "3306:3306"
     volumes:
@@ -35,10 +35,11 @@ services:
       - "30001:30001"
     environment:
       # ตั้งค่าเชื่อมต่อ DB ให้ตรงกับที่สร้างไว้ด้านบน
+      PORT: 30001
       DB_HOST: mysql-db
       DB_PORT: 3306
       DB_USERNAME: avian_user
-      DB_PASSWORD: avian_password
+      DB_PASSWORD: MySecretPassword123!
       DB_DATABASE: avian_blood_db
       # เปลี่ยน JWT_SECRET ตามต้องการ
       JWT_SECRET: my_super_secret_key 
