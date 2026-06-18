@@ -7,10 +7,16 @@ import { Image } from './entities/image.entity';
 import { PredictionBatchController } from './prediction.batch.controller';
 import { Prediction } from '../prediction/entities/prediction.entity';
 import { ManageDataController } from './manage-data.controller';
+import { HomeController } from './home.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Batch, Image, Prediction])],
-  controllers: [ManageDataController, BatchController, PredictionBatchController],
+  controllers: [
+    ManageDataController,
+    BatchController,
+    PredictionBatchController,
+    HomeController,
+  ],
   providers: [BatchService],
   exports: [BatchService],
 })
