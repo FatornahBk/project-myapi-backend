@@ -71,7 +71,14 @@ export class AuthService {
       throw new UnauthorizedException('บัญชียังไม่ได้รับการอนุมัติ');
     }
 
-    const payload = { sub: user.user_id, email: user.email, role: user.role };
+    const payload = { 
+      sub: user.user_id, 
+      email: user.email, 
+      role: user.role,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      profile_image: user.profile_image,
+    };
     const token = this.jwtService.sign(payload);
     return { access_token: token };
   }

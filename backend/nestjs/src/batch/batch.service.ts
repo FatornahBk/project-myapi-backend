@@ -67,6 +67,8 @@ export class BatchService {
       'batch.chicken_type',
       'batch.age',
       'batch.province',
+      'batch.stain_type',
+      'batch.created_at',
       'image.image_id',
       'image.image_name',
       'image.image_status',
