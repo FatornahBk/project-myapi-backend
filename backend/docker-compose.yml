@@ -39,6 +39,8 @@ services:
     build: ./fastapi
     container_name: avian_fastapi
     restart: always
+    env_file:
+      - .env
     #ports:
       #- "8000:8000"
     depends_on:

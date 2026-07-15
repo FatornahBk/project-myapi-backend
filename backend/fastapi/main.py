@@ -5,6 +5,25 @@ from PIL import Image
 from collections import defaultdict
 import io
 from typing import List
+import pymysql
+import os
+
+# ---------------------------------------------------------------------------
+# Database Connection Config
+# ---------------------------------------------------------------------------
+DB_HOST = os.getenv("DB_HOST", "mysql-db") # อ้างอิงชื่อ Service ใน Docker
+DB_USER = os.getenv("DB_USERNAME", "root")
+DB_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
+DB_DATABASE = os.getenv("DB_DATABASE", "")
+
+def get_db_connection():
+    return pymysql.connect(
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_DATABASE,
+        cursorclass=pymysql.cursors.DictCursor
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -130,30 +149,60 @@ async def predict_batch(
 
     prediction_results = []
 
-    # วนลูปประมวลผลรูปภาพทีละไฟล์จาก Array ที่ส่งมา
-    for image in images:
-        # ถ้ารูปไหนไม่ใช่ไฟล์ภาพ ให้ข้ามไป ไม่ต้องโยน Error เพื่อให้ภาพอื่นยังทำงานต่อได้
-        if not image.content_type.startswith("image/"):
-            prediction_results.append({
-                "filename": image.filename,
-                "error": "ไม่ใช่ไฟล์รูปภาพ ข้ามการทำงาน"
-            })
-            continue
+    # เชื่อมต่อฐานข้อมูลก่อนเริ่มลูป
+    try:
+        connection = get_db_connection()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"เชื่อมต่อฐานข้อมูลล้มเหลว: {str(e)}")
 
-        try:
-            pil_image = read_image(image)
-            results   = MODELS[mode](pil_image, conf=CONF_THRESHOLD)
-            
-            # ใช้ helper เดิมสร้างโครงสร้าง Response ของภาพนั้นๆ
-            image_result = build_response(mode, image.filename, results)
-            prediction_results.append(image_result)
-            
-        except Exception as e:
-            # ดักจับ Error กรณีไฟล์เสีย เพื่อไม่ให้ระบบล่มทั้ง Batch
-            prediction_results.append({
-                "filename": image.filename,
-                "error": f"เกิดข้อผิดพลาด: {str(e)}"
-            })
+    try:
+        with connection.cursor() as cursor:
+            # วนลูปประมวลผลรูปภาพทีละไฟล์จาก Array ที่ส่งมา
+            for image in images:
+                if not image.content_type.startswith("image/"):
+                    prediction_results.append({
+                        "filename": image.filename,
+                        "error": "ไม่ใช่ไฟล์รูปภาพ ข้ามการทำงาน"
+                    })
+                    continue
+
+                # 1. ค้นหา image_id และ image_name จากฐานข้อมูล
+                # เนื่องจาก DB เก็บ image_path เป็น 'uploads/batches/smear-xxx.jpg' จึงใช้ LIKE %filename
+                sql = "SELECT image_id, image_name FROM images WHERE image_path LIKE %s LIMIT 1"
+                cursor.execute(sql, ('%' + image.filename,))
+                db_record = cursor.fetchone()
+
+                image_id = db_record["image_id"] if db_record else None
+                image_name = db_record["image_name"] if db_record else "Unknown"
+
+                # 2. ประมวลผลภาพด้วยโมเดล AI
+                try:
+                    pil_image = read_image(image)
+                    results   = MODELS[mode](pil_image, conf=CONF_THRESHOLD)
+                    
+                    # 3. จัดโครงสร้างข้อมูลใหม่ให้ตรงกับผลลัพธ์ที่ต้องการ
+                    image_result = build_response(mode, image.filename, results)
+                    
+                    formatted_result = {
+                        "image_id": image_id,
+                        "mode": mode,
+                        "image_name": image_name,
+                        "filename": image_result["filename"],
+                        "total_detections": image_result["total_detections"],
+                        "classes_found": image_result["classes_found"],
+                        "classes": image_result["classes"]
+                    }
+                    
+                    prediction_results.append(formatted_result)
+                    
+                except Exception as e:
+                    prediction_results.append({
+                        "filename": image.filename,
+                        "error": f"เกิดข้อผิดพลาด: {str(e)}"
+                    })
+    finally:
+        # อย่าลืมปิดคอนเนกชันฐานข้อมูลเมื่อเสร็จสิ้นการประมวลผลทั้ง Batch
+        connection.close()
 
     # ส่งคืนข้อมูลภาพทั้งหมดที่อยู่ใน Array กลับไปให้หน้าเว็บ
     return {
