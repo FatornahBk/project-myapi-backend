@@ -29,15 +29,43 @@ export class PredictionBatchController {
     description:
       'กรองตามประเภทการย้อมสี เช่น "Wright" หรือ "Giemsa"',
   })
+  @ApiQuery({
+    name: 'smear_id',
+    required: false,
+    description: 'ค้นหาด้วยรหัสชุดข้อมูล (Smear ID)',
+  })
+  @ApiQuery({
+    name: 'chicken_type',
+    required: false,
+    description: 'กรองตามสายพันธุ์/ประเภทไก่',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    description: 'ตั้งแต่วันที่สร้างชุดข้อมูล (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    description: 'ถึงวันที่สร้างชุดข้อมูล (YYYY-MM-DD)',
+  })
   async getPendingPredictions(
     @Request() req,
     @Query('page') page: number = 1,
     @Query('stain_type') stainType?: string,
+    @Query('smear_id') smearId?: string,
+    @Query('chicken_type') chickenType?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     return this.batchService.findPendingBatchesForPrediction(
       req.user.userId,
       page,
       stainType,
+      smearId,
+      chickenType,
+      startDate,
+      endDate,
     );
   }
 }

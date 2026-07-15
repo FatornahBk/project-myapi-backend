@@ -47,6 +47,10 @@ export class BatchService {
     userId: number,
     page: number = 1,
     stainType?: string,
+    smearId?: string,
+    chickenType?: string,
+    startDate?: string,
+    endDate?: string,
   ) {
     const limit = 5;
     const skip = (page - 1) * limit;
@@ -59,6 +63,21 @@ export class BatchService {
 
     if (stainType) {
       query.andWhere('batch.stain_type = :stainType', { stainType });
+    }
+
+    if (smearId) {
+      query.andWhere('batch.smear_id LIKE :smearId', { smearId: `%${smearId}%` });
+    }
+
+    if (chickenType) {
+      query.andWhere('batch.chicken_type = :chickenType', { chickenType });
+    }
+
+    if (startDate && endDate) {
+      query.andWhere('batch.created_at BETWEEN :startDate AND :endDate', {
+        startDate: `${startDate} 00:00:00`,
+        endDate: `${endDate} 23:59:59`,
+      });
     }
 
     query.select([
