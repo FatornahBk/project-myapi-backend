@@ -8,10 +8,11 @@ import { Batch } from 'src/batch/entities/batch.entity';
 import { Image } from 'src/batch/entities/image.entity';
 import { Detection } from 'src/prediction/entities/detection.entity';
 import { DashboardController } from './dashboard.controller';
+import { ProfileController } from './profile.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([User, Batch, Image, Detection])],
-  controllers: [ManageUserController, VerifyUserController, DashboardController],
+  controllers: [ManageUserController, VerifyUserController, DashboardController, ProfileController],
   providers: [UserService],
   exports: [UserService],
 })

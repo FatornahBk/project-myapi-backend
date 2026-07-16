@@ -10,6 +10,10 @@ import { GetDashboardDto } from './dto/get-dashboard.dto';
 import { Image } from 'src/batch/entities/image.entity';
 import { Detection } from 'src/prediction/entities/detection.entity';
 import { Batch } from 'src/batch/entities/batch.entity';
+import { GetProfileDto } from './dto/get-profile.dto';
+import { NotFoundException } from '@nestjs/common';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+
 
 @Injectable()
 export class UserService {
@@ -420,6 +424,245 @@ export class UserService {
         last_name: c.user_last_name,
         total_batches_submitted: Number(c.total_batches_submitted)
       })),
+    };
+  }
+
+  // profile
+  async getMyProfile(userId: number, queryDto: GetProfileDto) {
+    const { smear_id, chicken_type, stain_type, startDate, endDate, page = 1, limit = 10 } = queryDto;
+    const skip = (page - 1) * limit;
+
+    const user = await this.userRepository.findOne({
+      where: { user_id: userId },
+      select: ['user_id', 'first_name', 'last_name', 'profile_image', 'email', 'role'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const allUserBatches = await this.batchRepository.find({
+      where: { user: { user_id: userId } },
+      relations: ['images'],
+    });
+
+    let absoluteCompletedCount = 0;
+    let absolutePendingCount = 0;
+
+    for (const b of allUserBatches) {
+      const totalImg = b.images.length;
+      const completedImg = b.images.filter((img) => img.image_status === 'completed').length;
+      if (totalImg > 0 && completedImg === totalImg) {
+        absoluteCompletedCount++;
+      } else {
+        absolutePendingCount++;
+      }
+    }
+
+    const query = this.batchRepository
+      .createQueryBuilder('batch')
+      .leftJoinAndSelect('batch.images', 'image')
+      .leftJoinAndSelect('image.prediction', 'prediction')
+      .leftJoinAndSelect('prediction.detections', 'detection')
+      .where('batch.user_id = :userId', { userId });
+
+    if (smear_id) {
+      query.andWhere('batch.smear_id LIKE :smearId', { smearId: `%${smear_id}%` });
+    }
+    if (chicken_type) {
+      query.andWhere('batch.chicken_type = :chicken_type', { chicken_type });
+    }
+    if (stain_type) {
+      query.andWhere('batch.stain_type = :stain_type', { stain_type });
+    }
+
+    query.orderBy('batch.created_at', 'DESC');
+    const batches = await query.getMany();
+
+    let filterStart: Date | null = null;
+    let filterEnd: Date | null = null;
+    if (startDate && endDate) {
+      filterStart = new Date(`${startDate}T00:00:00`);
+      filterEnd = new Date(`${endDate}T23:59:59.999`);
+    }
+
+    const completed_batches: any[] = [];
+    const pending_batches: any[] = [];
+
+    for (const batch of batches) {
+      const totalImages = batch.images.length;
+      const completedImages = batch.images.filter((img) => img.image_status === 'completed');
+      
+      const isCompleted = totalImages > 0 && completedImages.length === totalImages;
+
+      let latestPredictionDate: Date | null = null;
+      if (isCompleted) {
+        latestPredictionDate = completedImages.reduce((latest, img) => {
+          if (!img.prediction) return latest;
+          return !latest || img.prediction.predicted_at > latest
+            ? img.prediction.predicted_at
+            : latest;
+        }, null as Date | null);
+      }
+
+      if (filterStart && filterEnd) {
+        if (isCompleted) {
+          if (!latestPredictionDate || latestPredictionDate < filterStart || latestPredictionDate > filterEnd) {
+            continue; 
+          }
+        } else {
+          if (batch.created_at < filterStart || batch.created_at > filterEnd) {
+            continue; 
+          }
+        }
+      }
+
+      const formattedBatch = {
+        batch_id: batch.batch_id,
+        smear_id: batch.smear_id,
+        chicken_type: batch.chicken_type,
+        province: batch.province,
+        age: batch.age,
+        stain_type: batch.stain_type,
+        description: batch.description,
+        status: isCompleted ? 'completed' : 'pending',
+        created_at: batch.created_at,
+        predicted_at: isCompleted ? latestPredictionDate : null, 
+        owner: {
+          first_name: user.first_name,
+          last_name: user.last_name,
+          profile_image: user.profile_image,
+        },
+        images: batch.images.map((img) => ({
+          image_id: img.image_id,
+          image_name: img.image_name,
+          image_status: img.image_status,
+          image_path: img.image_path,
+          prediction: img.prediction ? img.prediction : null,
+        })),
+      };
+
+      if (isCompleted) {
+        completed_batches.push(formattedBatch);
+      } else {
+        pending_batches.push(formattedBatch);
+      }
+    }
+
+    const totalCompletedFiltered = completed_batches.length;
+    const totalPendingFiltered = pending_batches.length;
+
+    const paginatedCompleted = completed_batches.slice(skip, skip + limit);
+    const paginatedPending = pending_batches.slice(skip, skip + limit);
+
+    return {
+      message: 'Profile and batch data retrieved successfully',
+      profile: {
+        first_name: user.first_name,
+        last_name: user.last_name,
+        profile_image: user.profile_image,
+        email: user.email,
+        role: user.role,
+        total_completed_batches: absoluteCompletedCount, 
+        total_pending_batches: absolutePendingCount,     
+      },
+      data: {
+        completed_batches: {
+          items: paginatedCompleted,
+          meta: {
+            total_items: totalCompletedFiltered,
+            current_page: page,
+            per_page: limit,
+            total_pages: Math.ceil(totalCompletedFiltered / limit),
+          }
+        },
+        pending_batches: {
+          items: paginatedPending,
+          meta: {
+            total_items: totalPendingFiltered,
+            current_page: page,
+            per_page: limit,
+            total_pages: Math.ceil(totalPendingFiltered / limit),
+          }
+        },
+      },
+    };
+  }
+
+  async deleteMyBatch(userId: number, batchId: number) {
+    // ค้นหาชุดข้อมูลและตรวจสอบว่าเป็นของ User คนนี้จริงๆ
+    const batch = await this.batchRepository.findOne({
+      where: { 
+        batch_id: batchId, 
+        user: { user_id: userId } 
+      },
+      relations: ['images'],
+    });
+
+    if (!batch) {
+      throw new NotFoundException('Batch not found, or you do not have permission to delete it');
+    }
+
+    // ลบไฟล์รูปภาพจริงๆ ออกจากระบบไฟล์ (โฟลเดอร์ uploads)
+    if (batch.images && batch.images.length > 0) {
+      for (const image of batch.images) {
+        if (image.image_path) {
+          const filePath = path.join(process.cwd(), image.image_path);
+          // ตรวจสอบว่ามีไฟล์อยู่จริงก่อนลบ
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        }
+      }
+    }
+
+    // ลบชุดข้อมูลออกจากฐานข้อมูล
+    await this.batchRepository.remove(batch);
+
+    return {
+      message: 'Batch and image files deleted successfully',
+    };
+  }
+
+  async updateMyProfile(userId: number, updateDto: UpdateProfileDto, file?: Express.Multer.File) {
+    const user = await this.userRepository.findOne({
+      where: { user_id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // อัปเดตชื่อและนามสกุลถ้ามีการส่งมา
+    if (updateDto.first_name) {
+      user.first_name = updateDto.first_name;
+    }
+    if (updateDto.last_name) {
+      user.last_name = updateDto.last_name;
+    }
+
+    // จัดการเรื่องรูปภาพโปรไฟล์
+    if (file) {
+      // 1. ตรวจสอบและลบรูปเก่าทิ้ง (ถ้ามี)
+      if (user.profile_image) {
+        const oldFilePath = path.join(process.cwd(), user.profile_image);
+        if (fs.existsSync(oldFilePath)) {
+          fs.unlinkSync(oldFilePath);
+        }
+      }
+      // 2. บันทึก path ของรูปใหม่ลง DB (แปลง \ เป็น / สำหรับ Windows)
+      user.profile_image = file.path.replace(/\\/g, '/');
+    }
+
+    await this.userRepository.save(user);
+
+    return {
+      message: 'Profile updated successfully',
+      profile: {
+        first_name: user.first_name,
+        last_name: user.last_name,
+        profile_image: user.profile_image,
+      },
     };
   }
 }
