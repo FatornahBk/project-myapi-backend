@@ -206,7 +206,7 @@ async def predict_batch(
 
     # ส่งคืนข้อมูลภาพทั้งหมดที่อยู่ใน Array กลับไปให้หน้าเว็บ
     return {
-        "message": "ประมวลผลชุดข้อมูลสำเร็จ",
+        "message": "Dataset processed successfully.",
         "mode": mode,
         "total_images_processed": len(prediction_results),
         "data": prediction_results 
