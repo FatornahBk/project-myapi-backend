@@ -28,12 +28,12 @@ export class AuthService {
     } = registerDto;
 
     if (password !== confirmPassword) {
-      throw new BadRequestException('รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน');
+      throw new BadRequestException('Passwords do not match.');
     }
 
     const existingUser = await this.userService.findByEmail(email);
     if (existingUser) {
-      throw new ConflictException('อีเมลนี้ถูกใช้งานในระบบแล้ว');
+      throw new ConflictException('This email address is already in use.');
     }
 
     const password_hash = await bcrypt.hash(password, 10);
@@ -49,7 +49,7 @@ export class AuthService {
     const { password_hash: _, ...result } = savedUser;
 
     return {
-      message: 'ลงทะเบียนสำเร็จ!',
+      message: 'Registration successful.',
       user: result,
     };
   }
@@ -59,16 +59,16 @@ export class AuthService {
 
     const user = await this.userService.findByEmail(email);
     if (!user) {
-      throw new UnauthorizedException('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      throw new UnauthorizedException('Invalid email or password.');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      throw new UnauthorizedException('Invalid email or password.');
     }
 
     if (!user.is_verified) {
-      throw new UnauthorizedException('บัญชียังไม่ได้รับการอนุมัติ');
+      throw new UnauthorizedException('Your account has not been approved yet.');
     }
 
     const payload = { 

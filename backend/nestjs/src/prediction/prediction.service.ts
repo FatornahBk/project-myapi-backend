@@ -30,7 +30,7 @@ export class PredictionService {
 
         if (!image) {
           console.log(
-            `ข้ามไฟล์: ไม่พบภาพ ID ${imgData.image_id} (ชื่อไฟล์: ${imgData.filename}) ในระบบฐานข้อมูล`,
+            `Skipping file: Image ID ${imgData.image_id} (filename: ${imgData.filename}) not found in the database.`,
           );
           continue;
         }
@@ -40,7 +40,7 @@ export class PredictionService {
         });
 
         if (isAlreadySaved) {
-          console.log(`ข้ามไฟล์: ภาพ ${imgData.filename} เคยรับผลทำนายไปแล้ว`);
+          console.log(`Skipping file: Image ${imgData.filename} Prediction result has already been received.`);
           continue;
         }
 
@@ -121,13 +121,13 @@ export class PredictionService {
     }
 
     if (savedImagesCount === 0) {
-      throw new BadRequestException('ไม่สามารถบันทึกข้อมูลผลลัพธ์การทำนายได้เลยแม้แต่รายการเดียว');
+      throw new BadRequestException('Failed to save any prediction results.');
     }
     
 
     return {
       success: true,
-      message: 'บันทึกคำอธิบายลักษณะอาการและพิกัดเซลล์เม็ดเลือดไก่ลงระบบสำเร็จ',
+      message: 'Cell characteristics description and chicken blood cell coordinates saved successfully.',
       total_images_submitted: payload.data.length,
       total_images_saved: savedImagesCount,
     };

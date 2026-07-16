@@ -6,11 +6,11 @@ export class LoginDto {
     example: 'somchai.vet@example.com',
     description: 'อีเมลของสัตวแพทย์ที่ยืนยันตัวตนแล้ว',
   })
-  @IsEmail({}, { message: 'รูปแบบอีเมลไม่ถูกต้อง' })
+  @IsEmail({}, { message: 'Invalid email address.' })
   email: string;
 
   @ApiProperty({ example: 'password123', description: 'รหัสผ่าน' })
   @IsString()
-  @IsNotEmpty({ message: 'กรุณากรอกรหัสผ่าน' })
+  @IsNotEmpty({ message: 'Password is required.' })
   password: string;
 }

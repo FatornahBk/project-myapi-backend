@@ -8,7 +8,7 @@ export class AdminGuard implements CanActivate {
 
     if (user?.role !== 'admin') {
       throw new ForbiddenException(
-        'สิทธิ์การเข้าถึงถูกปฏิเสธ: อนุญาตเฉพาะผู้ดูแลระบบเท่านั้น',
+        'Access denied. Administrator access only.',
       );
     }
 

@@ -37,7 +37,7 @@ export class BatchService {
     await this.imageRepository.save(imagesToSave);
 
     return {
-      message: 'อัปโหลดข้อมูลและรูปภาพสำเร็จ!',
+      message: 'Data and images uploaded successfully.',
       batch_id: savedBatch.batch_id,
       total_images: imagesToSave.length,
     };
@@ -100,7 +100,7 @@ export class BatchService {
 
     if (data.length === 0) {
       throw new NotFoundException(
-        'ไม่พบชุดข้อมูลรูปภาพเม็ดเลือดไก่ที่รอการทำนายผล',
+        'No pending chicken blood cell image datasets found for prediction.',
       );
     }
 
@@ -202,7 +202,7 @@ export class BatchService {
       return {
         batch_id: batch.batch_id,
         smear_id: batch.smear_id,
-        owner_email: batch.user ? batch.user.email : 'ไม่ทราบ',
+        owner_email: batch.user ? batch.user.email : 'Unknown',
         description: batch.description || '-',
         chicken_type: batch.chicken_type, // ประเภทเม็ดเลือด/สายพันธุ์ไก่
         stain_type: batch.stain_type,
@@ -213,7 +213,7 @@ export class BatchService {
     });
 
     return {
-      message: 'ดึงข้อมูล Manage Data สำเร็จ',
+      message: 'Manage Data retrieved successfully.',
       statistics: {
         total_images,
         total_batches,
@@ -242,7 +242,7 @@ export class BatchService {
     });
 
     if (!batch) {
-      throw new NotFoundException('ไม่พบชุดข้อมูลนี้ในระบบ');
+      throw new NotFoundException('Dataset not found.');
     }
 
     const safeUser = {
@@ -265,12 +265,12 @@ export class BatchService {
       where: { batch_id: batchId },
     });
     if (!batch) {
-      throw new NotFoundException('ไม่พบชุดข้อมูลนี้ในระบบ');
+      throw new NotFoundException('Dataset not found.');
     }
 
     await this.batchRepository.remove(batch);
 
-    return { message: `ลบชุดข้อมูลรหัส ${batch.smear_id} สำเร็จแล้ว` };
+    return { message: `Dataset ${batch.smear_id} deleted successfully.` };
   }
 
   async getHomeFeed(queryDto: GetHomeDataDto) {
@@ -369,8 +369,8 @@ export class BatchService {
         predicted_at: latestPrediction,
 
         owner: {
-          first_name: batch.user?.first_name || 'ไม่ระบุ',
-          last_name: batch.user?.last_name || 'ไม่ระบุ',
+          first_name: batch.user?.first_name || 'Unknown',
+          last_name: batch.user?.last_name || 'Unknown',
           profile_image: batch.user?.profile_image || null,
         },
 
@@ -452,7 +452,7 @@ export class BatchService {
     });
 
     return {
-      message: 'ดึงข้อมูลหน้า Home สำเร็จ',
+      message: 'Home data retrieved successfully.',
       data: formattedData,
       meta: {
         total_items,

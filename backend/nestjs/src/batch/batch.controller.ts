@@ -52,7 +52,7 @@ export class BatchController {
         if (!file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
           return cb(
             new BadRequestException(
-              'อนุญาตให้อัปโหลดเฉพาะไฟล์รูปภาพ (jpg, jpeg, png) เท่านั้น',
+              'Only image files (JPG, JPEG, PNG) are allowed.',
             ),
             false,
           );
@@ -67,7 +67,7 @@ export class BatchController {
     @UploadedFiles() files: Express.Multer.File[],
   ) {
     if (!files || files.length === 0) {
-      throw new BadRequestException('กรุณาแนบไฟล์รูปภาพมาด้วยอย่างน้อย 1 ไฟล์');
+      throw new BadRequestException('Please upload at least one image.');
     }
 
     return this.batchService.createBatchWithImages(

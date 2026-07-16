@@ -88,29 +88,29 @@ export class UserService {
   async updateRole(id: number, updateRoleDto: UpdateRoleDto) {
     const user = await this.userRepository.findOne({ where: { user_id: id } });
     if (!user) {
-      throw new BadRequestException('ไม่พบผู้ใช้งานที่ต้องการแก้ไข');
+      throw new BadRequestException('User not found.');
     }
 
     user.role = updateRoleDto.role;
     await this.userRepository.save(user);
 
     return {
-      message: `เปลี่ยนตำแหน่งของ ${user.first_name} เป็น ${user.role} เรียบร้อยแล้ว`,
+      message: `${user.first_name} role has been updated to ${user.role} successfully.`,
     };
   }
 
   async suspendUser(id: number, adminId: number) {
     if (id === adminId) {
-      throw new BadRequestException('คุณไม่สามารถระงับบัญชีของตัวเองได้');
+      throw new BadRequestException('You cannot suspend your own account.');
     }
 
     const user = await this.userRepository.findOne({ where: { user_id: id } });
     if (!user) {
-      throw new BadRequestException('ไม่พบผู้ใช้งานที่ต้องการระงับ');
+      throw new BadRequestException('User to suspend not found.');
     }
 
     if (user.is_active === false) {
-      throw new BadRequestException('บัญชีนี้ถูกระงับการใช้งานไปแล้ว');
+      throw new BadRequestException('This account has already been suspended.');
     }
 
     // ทำการระงับบัญชีโดยเปลี่ยนสถานะเป็น false
@@ -119,18 +119,18 @@ export class UserService {
     await this.userRepository.save(user);
 
     return {
-      message: `ระงับบัญชีของ ${user.first_name} ${user.last_name} เรียบร้อยแล้ว`,
+      message: `${user.first_name} ${user.last_name} account has been suspended successfully.`,
     };
   }
 
   async approveUser(id: number) {
     const user = await this.userRepository.findOne({ where: { user_id: id } });
     if (!user) {
-      throw new BadRequestException('ไม่พบผู้ใช้งานที่ต้องการอนุมัติ');
+      throw new BadRequestException('User to approve not found.');
     }
 
     if (user.is_verified === 1) {
-      throw new BadRequestException('บัญชีนี้ได้รับการอนุมัติไปแล้ว');
+      throw new BadRequestException('This account has already been approved.');
     }
 
     user.is_verified = 1;
@@ -159,7 +159,7 @@ export class UserService {
     }
 
     return {
-      message: `อนุมัติบัญชีของ ${user.email} และส่งอีเมลแจ้งเตือนเรียบร้อยแล้ว`,
+      message: `Account ${user.email} has been approved and a notification email has been sent successfully.`,
     };
   }
 
@@ -217,9 +217,9 @@ export class UserService {
       }),
     ]);
 
-    let responseMessage = 'ดึงข้อมูลสำเร็จ';
+    let responseMessage = 'Data retrieved successfully.';
     if (unverifiedUsers.length === 0) {
-      responseMessage = 'ไม่มีผู้ใช้รอยืนยันบัญชีในขณะนี้';
+      responseMessage = 'No users are currently waiting for account approval.';
     }
 
     return {
@@ -236,17 +236,17 @@ export class UserService {
   async rejectUser(id: number) {
     const user = await this.userRepository.findOne({ where: { user_id: id } });
     if (!user) {
-      throw new BadRequestException('ไม่พบผู้ใช้งานที่ต้องการปฏิเสธ');
+      throw new BadRequestException('User to reject not found.');
     }
 
     if (user.is_verified === 1) {
       throw new BadRequestException(
-        'บัญชีนี้ได้รับการอนุมัติไปแล้ว ไม่สามารถปฏิเสธได้',
+        'This account has already been approved and cannot be rejected.',
       );
     }
 
     if (user.is_verified === 2) {
-      throw new BadRequestException('บัญชีนี้ถูกปฏิเสธไปแล้ว');
+      throw new BadRequestException('This account has already been rejected.');
     }
 
     user.is_verified = 2;
@@ -273,7 +273,7 @@ export class UserService {
     }
 
     return {
-      message: `ปฏิเสธบัญชีของ ${user.email} และส่งอีเมลแจ้งเตือนเรียบร้อยแล้ว`,
+      message: `Account ${user.email} has been rejected and a notification email has been sent successfully.`,
     };
   }
 
@@ -379,12 +379,12 @@ export class UserService {
 
     const recent_activities = pending_users_data.slice(0, 3).map((u, index) => ({
       id: index + 1,
-      activity: `คุณหมอ ${u.first_name} ${u.last_name} ได้ลงทะเบียนเข้าสู่ระบบใหม่และรอกรรมการตรวจสอบ`,
+      activity: `Dr. ${u.first_name} ${u.last_name} has registered for a new account and is awaiting committee review.`,
       timestamp: u.created_at,
     }));
 
     return {
-      message: 'ดึงข้อมูลสถิติหน้า Dashboard สำเร็จ',
+      message: 'Dashboard statistics retrieved successfully.',
       user_statistics: {
         total_users,
         verified_users,
@@ -410,7 +410,7 @@ export class UserService {
       },
       avian_blood_insights: {
         total_batches,
-        top_chicken_type: topChickenTypeResult?.type || 'ยังไม่มีข้อมูล',
+        top_chicken_type: topChickenTypeResult?.type || 'No data available.',
         total_cells_detected,
       },
       system_activities: recent_activities,
