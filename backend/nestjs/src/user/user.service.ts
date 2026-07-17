@@ -34,7 +34,18 @@ export class UserService {
     return this.userRepository.save(newUser);
   }
 
-  async findAllUsers(roleFilter?: string, searchEmail?: string) {
+  async findAllUsers(
+    roleFilter?: string, 
+    searchEmail?: string, 
+    statusFilter?: string,
+    page: number = 1,
+    limit: number = 10,
+  ) {
+
+    const currentPage = Number(page) || 1;
+    const perPage = Number(limit) || 10;
+    const skip = (currentPage - 1) * perPage;
+
     const whereCondition: any = {
       is_verified: 1,
     };
@@ -47,8 +58,14 @@ export class UserService {
       whereCondition.email = Like(`%${searchEmail}%`);
     }
 
-    const [users, totalCount, activeCount, suspendedCount] = await Promise.all([
-      this.userRepository.find({
+    if (statusFilter === 'active') {
+      whereCondition.is_active = true;
+    } else if (statusFilter === 'suspend') {
+      whereCondition.is_active = false;
+    }
+
+    const [[users, filteredTotalCount], totalCount, activeCount, suspendedCount] = await Promise.all([
+      this.userRepository.findAndCount({
         where: whereCondition,
         select: [
           'user_id',
@@ -63,7 +80,9 @@ export class UserService {
           'verified_at',
           'is_active',
         ],
-        order: { created_at: 'ASC' },
+        order: { created_at: 'DESC' },
+        skip: skip,
+        take: perPage,
       }),
 
       this.userRepository.count({
@@ -75,7 +94,7 @@ export class UserService {
       }),
 
       this.userRepository.count({
-        where: { is_active: false },
+        where: { is_verified: 1, is_active: false },
       }),
     ]);
 
@@ -84,6 +103,12 @@ export class UserService {
         total_users: totalCount,
         active_accounts: activeCount,
         suspended: suspendedCount,
+      },
+      meta: {
+        total_items: filteredTotalCount,
+        current_page: currentPage,
+        per_page: perPage,
+        total_pages: Math.ceil(filteredTotalCount / perPage),
       },
       data: users,
     };
@@ -119,7 +144,6 @@ export class UserService {
 
     // ทำการระงับบัญชีโดยเปลี่ยนสถานะเป็น false
     user.is_active = false;
-    user.is_verified = 0;
     await this.userRepository.save(user);
 
     return {
@@ -209,7 +233,7 @@ export class UserService {
       this.userRepository.count({
         where: {
           is_verified: 1,
-          updated_at: Between(startOfToday, endOfToday),
+          verified_at: Between(startOfToday, endOfToday),
         },
       }),
 
@@ -663,6 +687,39 @@ export class UserService {
         last_name: user.last_name,
         profile_image: user.profile_image,
       },
+    };
+  }
+
+  async activateUser(targetUserId: number) {
+    const user = await this.userRepository.findOne({
+      where: { user_id: targetUserId },
+      select: ['user_id', 'is_active'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.is_active) {
+      return {
+        message: 'User account is already active',
+        data: {
+          user_id: user.user_id,
+          is_active: user.is_active,
+        }
+      };
+    }
+
+    user.is_active = true; 
+
+    await this.userRepository.save(user);
+
+    return {
+      message: 'User account activated successfully',
+      data: {
+        user_id: user.user_id,
+        is_active: user.is_active,
+      }
     };
   }
 }

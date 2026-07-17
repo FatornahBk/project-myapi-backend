@@ -41,11 +41,33 @@ export class ManageUserController {
     required: false,
     description: 'ค้นหาด้วยอีเมล (พิมพ์แค่บางส่วนได้)',
   })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'กรองตามสถานะบัญชี (all, active, suspend) ถ้าไม่ใส่จะดึงทั้งหมด',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'หน้าปัจจุบัน',
+    type: Number,
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'จำนวนรายการต่อหน้า',
+    type: Number,
+    example: 10,
+  })
   async getAllUsers(
     @Query('role') role?: string,
     @Query('email') email?: string,
+    @Query('status') status?: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
   ) {
-    return this.userService.findAllUsers(role, email);
+    return this.userService.findAllUsers(role, email, status, page, limit);
   }
 
   @UseGuards(AuthGuard('jwt'), AdminGuard)
@@ -65,5 +87,15 @@ export class ManageUserController {
   @ApiOperation({ summary: 'ระงับบัญชีผู้ใช้งาน (สำหรับ Admin)' })
   async suspendUser(@Param('id', ParseIntPipe) id: number, @Request() req) {
     return this.userService.suspendUser(id, req.user.userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @ApiBearerAuth()
+  @Patch('admin/activate/:id')
+  @ApiOperation({ summary: 'ปลดระงับบัญชีผู้ใช้งาน (สำหรับ Admin)' })
+  async activateUser(
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.userService.activateUser(id);
   }
 }
