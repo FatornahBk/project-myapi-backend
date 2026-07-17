@@ -8,7 +8,7 @@ export class AdminGuard implements CanActivate {
 
     if (user?.role !== 'admin') {
       throw new ForbiddenException(
-        'Access denied. Administrator access only.',
+        'Administrator access only.',
       );
     }
 

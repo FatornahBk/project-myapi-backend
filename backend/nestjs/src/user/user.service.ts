@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
-import { Repository, Between, Like, MoreThanOrEqual } from 'typeorm';
+import { Repository, Between, Like, MoreThanOrEqual, In } from 'typeorm';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -191,28 +191,43 @@ export class UserService {
     };
   }
 
-  async findUnverifiedUsers(searchEmail?: string) {
+  async findUnverifiedUsers(
+    searchEmail?: string,
+    statusFilter: string = 'all',
+    page: number = 1,
+    limit: number = 10,
+  ) {
+    const currentPage = Number(page) || 1;
+    const perPage = Number(limit) || 10;
+    const skip = (currentPage - 1) * perPage;
+
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
     const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);
 
-    const whereCondition: any = {
-      is_verified: 0,
-    };
+    const whereCondition: any = {};
+
+    if (statusFilter === 'pending') {
+      whereCondition.is_verified = 0;
+    } else if (statusFilter === 'reject') {
+      whereCondition.is_verified = 2;
+    } else {
+      whereCondition.is_verified = In([0, 2]);
+    }
 
     if (searchEmail) {
       whereCondition.email = Like(`%${searchEmail}%`);
     }
 
     const [
-      unverifiedUsers,
+      [unverifiedUsers, filteredTotalCount],
       pendingCount,
       approvedTodayCount,
       rejectedTodayCount,
     ] = await Promise.all([
-      this.userRepository.find({
+      this.userRepository.findAndCount({
         where: whereCondition,
         select: [
           'user_id',
@@ -221,9 +236,12 @@ export class UserService {
           'email',
           'veterinary_license',
           'role',
+          'is_verified', 
           'created_at',
         ],
         order: { created_at: 'ASC' },
+        skip: skip,
+        take: perPage,
       }),
 
       this.userRepository.count({
@@ -256,6 +274,12 @@ export class UserService {
         pending: pendingCount,
         approved_today: approvedTodayCount,
         rejected_today: rejectedTodayCount,
+      },
+      meta: {
+        total_items: filteredTotalCount,
+        current_page: currentPage,
+        per_page: perPage,
+        total_pages: Math.ceil(filteredTotalCount / perPage),
       },
       data: unverifiedUsers,
     };
@@ -719,6 +743,43 @@ export class UserService {
       data: {
         user_id: user.user_id,
         is_active: user.is_active,
+      }
+    };
+  }
+
+  async undoRejectUser(targetUserId: number) {
+    const user = await this.userRepository.findOne({
+      where: { user_id: targetUserId },
+      select: ['user_id', 'is_verified'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.is_verified === 0) {
+      return {
+        message: 'User account is already pending verification',
+        data: {
+          user_id: user.user_id,
+          is_verified: user.is_verified,
+        }
+      };
+    }
+
+    if (user.is_verified === 1) {
+      throw new BadRequestException('Cannot undo rejection for an already verified user');
+    }
+
+    user.is_verified = 0; 
+
+    await this.userRepository.save(user);
+
+    return {
+      message: 'User rejection has been undone successfully',
+      data: {
+        user_id: user.user_id,
+        is_verified: user.is_verified,
       }
     };
   }
