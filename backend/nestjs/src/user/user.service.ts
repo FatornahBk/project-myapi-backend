@@ -333,24 +333,21 @@ export class UserService {
     const { page = 1, limit = 3 } = queryDto;
     const skip = (page - 1) * limit;
 
-    const total_users = await this.userRepository.count();
-    const verified_users = await this.userRepository.count({
-      where: { is_verified: 1 },
-    });
-    const unverified_users = await this.userRepository.count({
-      where: { is_verified: 0 },
-    });
-
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const new_signups_this_week = await this.userRepository.count({
-      where: { created_at: MoreThanOrEqual(sevenDaysAgo) },
-    });
-
-    const [pending_users_data, total_pending_items] =
-      await this.userRepository.findAndCount({
+    const [
+      total_users,
+      pending_verification,
+      prediction_jobs,
+      pending_images,
+      [pending_users_data, total_pending_items]
+    ] = await Promise.all([
+      this.userRepository.count(), // 1
+      this.userRepository.count({ where: { is_verified: In([0, 2]) } }), // 2
+      this.imageRepository.count({ where: { image_status: 'completed' } }), // 3
+      this.imageRepository.count({ where: { image_status: 'pending' } }), // 4
+      this.userRepository.findAndCount({ // 5
         where: { is_verified: 0 },
         select: [
+          'user_id',
           'first_name',
           'last_name',
           'email',
@@ -361,88 +358,24 @@ export class UserService {
         order: { created_at: 'DESC' },
         skip,
         take: limit,
-      });
+      })
+    ]);
 
-    
-    const completed_images = await this.imageRepository.count({
-      where: { image_status: 'completed' },
-    });
-    const pending_images = await this.imageRepository.count({
-      where: { image_status: 'pending' },
-    });
-    const total_images = completed_images + pending_images;
+    const dataset_images = prediction_jobs + pending_images;
 
-    const completed_percentage =
-      total_images > 0
-        ? ((completed_images / total_images) * 100).toFixed(2)
-        : 0;
-    const pending_percentage =
-      total_images > 0 ? ((pending_images / total_images) * 100).toFixed(2) : 0;
-
-    
-
-    const total_batches = await this.batchRepository.count();
-
-    // หาค่าเฉลี่ย Confidence ของระบบทั้งหมด
-    const avgConfidenceResult = await this.detectionRepository
-      .createQueryBuilder('det')
-      .select('AVG(det.confidence)', 'avg')
-      .getRawOne();
-    const average_system_confidence = avgConfidenceResult?.avg
-      ? (avgConfidenceResult.avg * 100).toFixed(2)
+    const completed_percentage = dataset_images > 0
+      ? ((prediction_jobs / dataset_images) * 100).toFixed(2)
       : 0;
 
-    // หาประเภทยอดฮิต (Top Chicken Type)
-    const topChickenTypeResult = await this.batchRepository
-      .createQueryBuilder('batch')
-      .select('batch.chicken_type', 'type')
-      .addSelect('COUNT(batch.batch_id)', 'count')
-      .groupBy('batch.chicken_type')
-      .orderBy('count', 'DESC')
-      .limit(1)
-      .getRawOne();
-
-    // นับจำนวนเซลล์แยกตามชนิด (GROUP BY class_name)
-    const cellStatsRaw = await this.detectionRepository
-      .createQueryBuilder('det')
-      .select('det.class_name', 'className')
-      .addSelect('COUNT(det.detection_id)', 'count')
-      .groupBy('det.class_name')
-      .getRawMany();
-
-    const total_cells_detected = {
-      Heterophil: 0, Eosinophil: 0, Basophil: 0, Lymphocyte: 0, Monocyte: 0, Thrombocyte: 0
-    };
-    cellStatsRaw.forEach(stat => {
-      if (total_cells_detected[stat.className] !== undefined) {
-        total_cells_detected[stat.className] = Number(stat.count);
-      }
-    });
-
-    const top_contributors = await this.userRepository
-      .createQueryBuilder('user')
-      .select(['user.user_id', 'user.first_name', 'user.last_name'])
-      .addSelect('COUNT(batch.batch_id)', 'total_batches_submitted')
-      .innerJoin('user.batches', 'batch')
-      .groupBy('user.user_id')
-      .orderBy('total_batches_submitted', 'DESC')
-      .limit(3)
-      .getRawMany();
-
-    const recent_activities = pending_users_data.slice(0, 3).map((u, index) => ({
-      id: index + 1,
-      activity: `Dr. ${u.first_name} ${u.last_name} has registered for a new account and is awaiting committee review.`,
-      timestamp: u.created_at,
-    }));
+    const pending_percentage = dataset_images > 0 
+      ? ((pending_images / dataset_images) * 100).toFixed(2) 
+      : 0;
 
     return {
-      message: 'Dashboard statistics retrieved successfully.',
-      user_statistics: {
-        total_users,
-        verified_users,
-        unverified_users,
-        new_signups_this_week,
-      },
+      total_users,
+      pending_verification,
+      prediction_jobs,
+      dataset_images,
       pending_users_table: {
         data: pending_users_data,
         meta: {
@@ -452,26 +385,10 @@ export class UserService {
           total_pages: Math.ceil(total_pending_items / limit),
         }
       },
-      prediction_statistics: {
-        completed_images,
-        pending_images,
-        total_images,
+      prediction_status: {
         completed_percentage: Number(completed_percentage),
         pending_percentage: Number(pending_percentage),
-        average_system_confidence: Number(average_system_confidence),
-      },
-      avian_blood_insights: {
-        total_batches,
-        top_chicken_type: topChickenTypeResult?.type || 'No data available.',
-        total_cells_detected,
-      },
-      system_activities: recent_activities,
-      top_contributors: top_contributors.map(c => ({
-        user_id: c.user_user_id,
-        first_name: c.user_first_name,
-        last_name: c.user_last_name,
-        total_batches_submitted: Number(c.total_batches_submitted)
-      })),
+      }
     };
   }
 
