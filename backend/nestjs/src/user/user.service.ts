@@ -336,15 +336,24 @@ export class UserService {
     const [
       total_users,
       pending_verification,
-      prediction_jobs,
-      pending_images,
+      dataset_images,
+      total_batches,
+      completed_batches_raw,
       [pending_users_data, total_pending_items]
     ] = await Promise.all([
-      this.userRepository.count(), // 1
-      this.userRepository.count({ where: { is_verified: In([0, 2]) } }), // 2
-      this.imageRepository.count({ where: { image_status: 'completed' } }), // 3
-      this.imageRepository.count({ where: { image_status: 'pending' } }), // 4
-      this.userRepository.findAndCount({ // 5
+      this.userRepository.count(),
+      this.userRepository.count({ where: { is_verified: 0 } }),
+      this.imageRepository.count(),
+      this.batchRepository.count(),
+      
+      this.batchRepository
+        .createQueryBuilder('batch')
+        .innerJoin('batch.images', 'image')
+        .groupBy('batch.batch_id')
+        .having("SUM(CASE WHEN image.image_status != 'completed' THEN 1 ELSE 0 END) = 0")
+        .getRawMany(),
+
+      this.userRepository.findAndCount({
         where: { is_verified: 0 },
         select: [
           'user_id',
@@ -361,14 +370,16 @@ export class UserService {
       })
     ]);
 
-    const dataset_images = prediction_jobs + pending_images;
+    const prediction_jobs = completed_batches_raw.length;
 
-    const completed_percentage = dataset_images > 0
-      ? ((prediction_jobs / dataset_images) * 100).toFixed(2)
+    const pending_batches = total_batches - prediction_jobs;
+
+    const completed_percentage = total_batches > 0
+      ? ((prediction_jobs / total_batches) * 100).toFixed(2)
       : 0;
 
-    const pending_percentage = dataset_images > 0 
-      ? ((pending_images / dataset_images) * 100).toFixed(2) 
+    const pending_percentage = total_batches > 0 
+      ? ((pending_batches / total_batches) * 100).toFixed(2) 
       : 0;
 
     return {
